@@ -47,12 +47,6 @@ namespace IngameScript
                 {PressureState.Fault, "Fault detected"}
             };
             public enum RequestState { None, Open, High, Low, Cycle }
-            private static readonly PressureState[] noSubsequentState = {
-                PressureState.High,
-                PressureState.Low,
-                PressureState.Open,
-                PressureState.Fault
-            };
             public enum DisplayFormat { OneLine, MultiLine, Debug };
 
             private List<IMyDoor> insideDoors;
