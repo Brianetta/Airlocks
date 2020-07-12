@@ -1,0 +1,6 @@
+﻿Airlock Manager
+---------------
+
+Airlock components include doors, air vents, oxygen tanks, lights and displays.
+
+To make a block into an airlock component, create an airlock ini section in that block's custom data.

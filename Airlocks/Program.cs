@@ -1,0 +1,552 @@
+﻿using Sandbox.Graphics;
+using Sandbox.ModAPI.Ingame;
+using SpaceEngineers.Game.ModAPI.Ingame;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using VRage.Game;
+using VRage.Game.Definitions;
+using VRage.Game.ModAPI.Ingame.Utilities;
+using VRageMath;
+using VRageRender;
+
+namespace IngameScript
+{
+    partial class Program : MyGridProgram
+    {
+        static readonly String iniSectionName = "Airlock";
+        private static bool showNames = true;
+        private static bool useColours = true;
+        static IMyTextSurface pbDisplay,pbKeyboard;
+        private String reqCommand, reqAirlock;
+
+        public class Airlock
+        {
+            private enum PressureState
+            {
+                Open,
+                High,
+                LockDown,
+                Falling,
+                Low,
+                LockUp,
+                Rising,
+                Leak,
+                Fault
+            };
+            private readonly Dictionary<PressureState, String> PressureStateLabel = new Dictionary<PressureState, string> {
+                {PressureState.Open, "Open both sides"},
+                {PressureState.High, "High pressure"},
+                {PressureState.LockDown, "Preparing to depressurize" },
+                {PressureState.Falling, "Despressurizing"},
+                {PressureState.Low, "Vacuum"},
+                {PressureState.LockUp, "Preparing to pressurize"},
+                {PressureState.Rising, "Pressurizing"},
+                {PressureState.Leak, "Leak detected"},
+                {PressureState.Fault, "Fault detected"}
+            };
+            public enum RequestState { None, Open, High, Low, Cycle }
+            private static readonly PressureState[] noSubsequentState = {
+                PressureState.High,
+                PressureState.Low,
+                PressureState.Open,
+                PressureState.Fault
+            };
+            public enum DisplayFormat { OneLine, MultiLine, Debug };
+
+            private List<IMyDoor> insideDoors;
+            private List<IMyDoor> outsideDoors;
+            private List<IMyTextSurface> displays;
+            private Dictionary<IMyTextSurface, DisplayFormat> displayFormat;
+            private List<IMyLightingBlock> lights;
+            private List<IMyAirVent> airVents;
+            private List<IMyGasTank> oxygenTanks;
+            public String name;
+            private PressureState pressureState;
+            public RequestState requestState;
+            private StringBuilder displayContent;
+
+            public Airlock(string name)
+            {
+                this.name = name;
+                insideDoors = new List<IMyDoor>();
+                outsideDoors = new List<IMyDoor>();
+                displays = new List<IMyTextSurface>();
+                displayFormat = new Dictionary<IMyTextSurface, DisplayFormat>();
+                lights = new List<IMyLightingBlock>();
+                airVents = new List<IMyAirVent>();
+                oxygenTanks = new List<IMyGasTank>();
+                pressureState = PressureState.Open;
+                requestState = RequestState.None;
+            }
+
+            private PressureState getPressureStateFromRequest()
+            {
+                switch (requestState)
+                {
+                    case RequestState.Open:
+                        return PressureState.Open;
+                    case RequestState.High:
+                        switch (pressureState)
+                        {
+                            case PressureState.Falling:
+                            case PressureState.Rising:
+                                return PressureState.Rising;
+                            case PressureState.High:
+                                return PressureState.High;
+                            case PressureState.Leak:
+                                return pressureState;
+                            default:
+                                return PressureState.LockUp;
+                        };
+                    case RequestState.Low:
+                        switch (pressureState)
+                        {
+                            case PressureState.Falling:
+                            case PressureState.Rising:
+                                return PressureState.Falling;
+                            case PressureState.Low:
+                                return PressureState.Low;
+                            default:
+                                return PressureState.LockDown;
+                        };
+                    case RequestState.Cycle:
+                        switch (pressureState)
+                        {
+                            case PressureState.Low:
+                            case PressureState.LockDown:
+                                return PressureState.LockUp;
+                            case PressureState.Rising:
+                                return PressureState.Falling;
+                            case PressureState.Falling:
+                                return PressureState.Rising;
+                            default:
+                                return PressureState.LockDown;
+                        }
+                    default:
+                        return PressureState.Fault; // Not actually reachable
+                }
+            }
+
+            private PressureState getNextPressureState()
+            {
+                switch (pressureState)
+                {
+                    case PressureState.LockDown:
+                        return PressureState.Falling;
+                    case PressureState.Falling:
+                        return PressureState.Low;
+                    case PressureState.LockUp:
+                        return PressureState.Rising;
+                    case PressureState.Rising:
+                        return PressureState.High;
+                    default:
+                        return pressureState;
+                }
+            }
+
+            public bool processState()
+            {
+                if (requestState != RequestState.None)
+                {
+                    pressureState = getPressureStateFromRequest();
+                    requestState = RequestState.None;
+                }
+                bool stateComplete = true;
+                switch (pressureState)
+                {
+                    case PressureState.LockDown:
+                    case PressureState.LockUp:
+                        foreach (IMyDoor door in outsideDoors)
+                        {
+                            if (door.Status == DoorStatus.Closed)
+                            {
+                                door.Enabled = false;
+                            }
+                            else
+                            {
+                                stateComplete = false;
+                                door.Enabled = true;
+                                door.CloseDoor();
+                            }
+                        }
+                        foreach (IMyDoor door in insideDoors)
+                        {
+                            if (door.Status == DoorStatus.Closed)
+                            {
+                                door.Enabled = false;
+                            }
+                            else
+                            {
+                                stateComplete = false;
+                                door.Enabled = true;
+                                door.CloseDoor();
+                            }
+                        }
+                        break;
+                    case PressureState.Falling:
+                        foreach (IMyAirVent airVent in airVents)
+                        {
+                            if ((airVent.Status == VentStatus.Depressurized)||(airVent.Enabled && airVent.GetOxygenLevel()<0.01))
+                            {
+                                airVent.Enabled = false;
+                                outsideDoors.ForEach(d => { d.Enabled = true; d.OpenDoor(); });
+                            }
+                            else
+                            {
+                                airVent.Depressurize = true;
+                                airVent.Enabled = true;
+                                stateComplete = false;
+                            }
+                            if (!airVent.CanPressurize)
+                            {
+                                pressureState = PressureState.Leak;
+                            }
+                        }
+                        foreach(IMyGasTank oxygenTank in oxygenTanks)
+                        {
+                            if (oxygenTank.FilledRatio == 0.0) pressureState = PressureState.Fault;
+                        }
+                        break;
+                    case PressureState.Rising:
+                        foreach (IMyAirVent airVent in airVents)
+                        {
+                            if (airVent.Status == VentStatus.Pressurized)
+                            {
+                                airVent.Enabled = false;
+                                insideDoors.ForEach(d => { d.Enabled = true; d.OpenDoor(); });
+                            }
+                            else
+                            {
+                                airVent.Depressurize = false;
+                                airVent.Enabled = true;
+                                stateComplete = false;
+                            }
+                            if (!airVent.CanPressurize)
+                            {
+                                pressureState = PressureState.Leak;
+                            }
+                        }
+                        foreach (IMyGasTank oxygenTank in oxygenTanks)
+                        {
+                            if (oxygenTank.FilledRatio == 1.0) pressureState = PressureState.Fault;
+                        }
+                        break;
+                    case PressureState.Open:
+                        foreach (IMyAirVent airVent in airVents)
+                        {
+                            airVent.Enabled = false;
+                        }
+                        foreach (IMyDoor door in insideDoors)
+                        {
+                            door.Enabled = true;
+                            //door.OpenDoor();
+                        }
+                        foreach (IMyDoor door in outsideDoors)
+                        {
+                            door.Enabled = true;
+                            //door.OpenDoor();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                if(stateComplete)
+                {
+                    pressureState = getNextPressureState();
+                }
+                updateDisplays();
+                return stateComplete;
+            }
+
+            public void addDoor(IMyDoor newDoor, bool inside = true)
+            {
+                if (inside)
+                {
+                    insideDoors.Add(newDoor);
+                    if (outsideDoors.Contains(newDoor))
+                    {
+                        outsideDoors.Remove(newDoor);
+                    }
+                }
+                else
+                {
+                    outsideDoors.Add(newDoor);
+                    if (insideDoors.Contains(newDoor))
+                    {
+                        insideDoors.Remove(newDoor);
+                    }
+                }
+            }
+
+            public void addDisplay(IMyTextSurface newDisplay, DisplayFormat newDisplayFormat)
+            {
+                displays.Add(newDisplay);
+                displayFormat.Add(newDisplay, newDisplayFormat);
+            }
+
+            public void addLight(IMyLightingBlock newLight)
+            {
+                lights.Add(newLight);
+            }
+
+            public void addAirVent(IMyAirVent newAirVent)
+            {
+                airVents.Add(newAirVent);
+            }
+
+            public void addTank(IMyGasTank newOxygenTank)
+            {
+                oxygenTanks.Add(newOxygenTank);
+            }
+
+            public void updateDisplays()
+            {
+                // DisplayFormat.Debug output
+                String separator = "\n";
+                foreach (var display in displays)
+                {
+                    displayContent = new StringBuilder();
+                    switch (displayFormat[display])
+                    {
+                        case DisplayFormat.Debug:
+                            displayContent.Append("Airlock information for: "+this.name+'\n'
+                                +PressureStateLabel[this.pressureState]+"\nInterior doors:\n");
+                            foreach (var insideDoor in insideDoors) displayContent.Append(insideDoor.CustomName+" ("+insideDoor.Status+")\n");
+                            displayContent.Append("Exterior doors:\n");
+                            foreach (var outsideDoor in outsideDoors) displayContent.Append(outsideDoor.CustomName+" ("+outsideDoor.Status+")\n");
+                            displayContent.Append("Air vents:\n");
+                            foreach (var airVent in airVents) displayContent.Append(airVent.CustomName+" ("+airVent.Status+")\n");
+                            displayContent.Append("Oxygen tanks:\n");
+                            foreach (var oxygenTank in oxygenTanks) displayContent.Append($"{oxygenTank.CustomName} ({oxygenTank.FilledRatio * 100:0.0}%)\n");
+                            break;
+                        case DisplayFormat.OneLine:
+                            if (showNames)
+                                displayContent.Append(this.name);
+                            foreach (IMyAirVent airVent in airVents)
+                            {
+                                displayContent.Append($" {airVent.Status} ({airVent.GetOxygenLevel() * 100:0.0}%)");
+                            }
+                            break;
+                        case DisplayFormat.MultiLine:
+                            if (showNames)
+                                displayContent.Append($"{this.name}{separator}");
+                            displayContent.Append($"{PressureStateLabel[this.pressureState]}");
+                            foreach (IMyAirVent airVent in airVents)
+                            {
+                                displayContent.Append($"{separator}{airVent.Status} ({airVent.GetOxygenLevel() * 100:0.0}%)");
+                            }
+                            break;
+                    }
+                    display.WriteText(displayContent);
+                    if (useColours && displayFormat[display] != DisplayFormat.Debug)
+                    {
+                        switch (pressureState)
+                        {
+                            case PressureState.Open:
+                                display.BackgroundColor = Color.DarkGoldenrod;
+                                break;
+                            case PressureState.High:
+                                display.BackgroundColor = Color.Green;
+                                break;
+                            case PressureState.LockDown:
+                                display.BackgroundColor = Color.DarkRed;
+                                break;
+                            case PressureState.Falling:
+                                display.BackgroundColor = Color.DarkCyan;
+                                break;
+                            case PressureState.Low:
+                                display.BackgroundColor = Color.Cyan;
+                                break;
+                            case PressureState.LockUp:
+                                display.BackgroundColor = Color.Blue;
+                                break;
+                            case PressureState.Rising:
+                                display.BackgroundColor = Color.DarkGreen;
+                                break;
+                            case PressureState.Leak:
+                            case PressureState.Fault:
+                                display.BackgroundColor = Color.Red;
+                                break;
+                        }
+                    }
+                };
+            }
+        }
+
+        Dictionary<String, Airlock> airlocks = new Dictionary<String, Airlock>();
+        readonly MyIni ini = new MyIni();
+        readonly MyCommandLine commandLine = new MyCommandLine();
+
+        public void populate()
+        {
+            List<IMyTerminalBlock> allAirlockBlocks = new List<IMyTerminalBlock>();
+            String airlockNameLC;
+            List<String> airlockNames = new List<string>();
+            bool doorSide = true;
+            int dMax = 1;
+            IMyTextSurface display;
+            MyIniParseResult result;
+            Airlock.DisplayFormat displayFormat;
+
+            airlocks.Clear();
+
+            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(allAirlockBlocks, f => f.CubeGrid.IsSameConstructAs(Me.CubeGrid) && f.IsFunctional && MyIni.HasSection(f.CustomData, iniSectionName));
+            foreach (var airlockBlock in allAirlockBlocks)
+            {
+                if (!ini.TryParse(airlockBlock.CustomData, out result))
+                    continue;
+                if (airlockBlock.Equals(Me))
+                {
+                    showNames = ini.Get(iniSectionName, "shownames").ToBoolean(true);
+                    useColours = ini.Get(iniSectionName, "usecolours").ToBoolean(ini.Get(iniSectionName, "usecolors").ToBoolean(true));
+                }
+                airlockNames.Clear();
+                if (ini.ContainsKey(iniSectionName, "airlock"))
+                {
+                    airlockNames.Add(ini.Get(iniSectionName, "airlock").ToString("airlock"));
+                }
+                if (ini.ContainsKey(iniSectionName, "airlocks"))
+                {
+                    airlockNames.AddArray((ini.Get(iniSectionName, "airlocks").ToString().Replace(", ", ",").Split(',')));
+                }
+                if (airlockNames.Count == 0) { airlockNames.Add("Airlock"); }
+                foreach (var airlockName in airlockNames)
+                {
+                    airlockNameLC = airlockName.ToLower();
+                    if (!airlocks.ContainsKey(airlockNameLC))
+                    {
+                        airlocks.Add(airlockNameLC, new Airlock(airlockName));
+                    }
+                    if (airlockBlock is IMyDoor)
+                    {
+                        doorSide = ini.Get(iniSectionName, "side").ToString("in").ToLower().StartsWith("in");
+                        airlocks[airlockNameLC].addDoor((IMyDoor)airlockBlock, doorSide);
+                    }
+                    if (airlockBlock is IMyAirVent)
+                    {
+                        airlocks[airlockNameLC].addAirVent((IMyAirVent)airlockBlock);
+                    }
+                    if (airlockBlock is IMyTextSurfaceProvider)
+                    {
+                        switch(ini.Get(iniSectionName,"format").ToString().ToLower())
+                        {
+                            case "debug":
+                                displayFormat = Airlock.DisplayFormat.Debug;
+                                break;
+                            case "oneline":
+                                displayFormat = Airlock.DisplayFormat.OneLine;
+                                break;
+                            case "multiline":
+                            default:
+                                displayFormat = Airlock.DisplayFormat.MultiLine;
+                                break;
+                        }
+                        dMax = ((IMyTextSurfaceProvider)airlockBlock).SurfaceCount;
+                        // Read CustomData to find out which surfaces to use, there might be more than one
+                        if (dMax > 1)
+                        {
+                            for (int displayNumber = 0; displayNumber < dMax; ++displayNumber)
+                            {
+                                if (ini.Get(iniSectionName, $"display{displayNumber}").ToString().ToLower() == airlockNameLC)
+                                {
+                                    display = ((IMyTextSurfaceProvider)airlockBlock).GetSurface(displayNumber);
+                                    display.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+                                    airlocks[airlockNameLC].addDisplay(display,displayFormat);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            display = ((IMyTextSurfaceProvider)airlockBlock).GetSurface(0);
+                            display.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+                            airlocks[airlockNameLC].addDisplay(display,displayFormat);
+                        }
+                    }
+                    if (airlockBlock is IMyGasTank)
+                    {
+                        // Let's hope the player doesn't want to breathe hydrogen
+                        airlocks[airlockNameLC].addTank((IMyGasTank)airlockBlock);
+                    }
+                    airlocks[airlockNameLC].updateDisplays();
+                }
+            }
+            pbDisplay.WriteText("Airlocks configured:\n", false);
+            foreach (var airlock in airlocks.Values)
+            {
+                pbDisplay.WriteText($"Airlock: {airlock.name}\n", true);
+            }
+        }
+
+        public Program()
+        {
+            Runtime.UpdateFrequency = UpdateFrequency.Update100;
+            pbDisplay = Me.GetSurface(0);
+            pbDisplay.Font = "DEBUG";
+            pbDisplay.FontSize = 0.8F;
+            pbDisplay.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+            pbKeyboard = Me.GetSurface(1);
+            pbKeyboard.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+            pbKeyboard.Font = "DEBUG";
+            pbKeyboard.FontSize = 3F;
+            populate();
+        }
+
+        public void Main(String args)
+        {
+            if (commandLine.TryParse(args))
+            {
+                reqCommand = commandLine.Argument(0).ToLower();
+                reqAirlock = commandLine.ArgumentCount > 1 ? commandLine.Argument(1).ToLower() : "";
+                pbKeyboard.WriteText(args + '\n');
+                switch(reqCommand)
+                {
+                    case "populate":
+                        pbKeyboard.WriteText("Populate from Custom Data\n", true);
+                        populate();
+                        break;
+                    case "high":
+                        if (airlocks.ContainsKey(reqAirlock))
+                        {
+                            pbKeyboard.WriteText("Pressurize "+airlocks[reqAirlock].name, true);
+                            airlocks[reqAirlock].requestState = Airlock.RequestState.High;
+                        }
+                        break;
+                    case "low":
+                        if (airlocks.ContainsKey(reqAirlock))
+                        {
+                            pbKeyboard.WriteText("Depressurize "+airlocks[reqAirlock].name, true);
+                            airlocks[reqAirlock].requestState = Airlock.RequestState.Low;
+                        }
+                        break;
+                    case "cycle":
+                        if (airlocks.ContainsKey(reqAirlock))
+                        {
+                            pbKeyboard.WriteText("Cycle "+airlocks[reqAirlock].name, true);
+                            airlocks[reqAirlock].requestState = Airlock.RequestState.Cycle;
+                        }
+                        break;
+                    case "open":
+                        if (airlocks.ContainsKey(reqAirlock))
+                        {
+                            pbKeyboard.WriteText("Force open "+airlocks[reqAirlock].name, true);
+                            airlocks[reqAirlock].requestState = Airlock.RequestState.Open;
+                        }
+                        break;
+                    default:
+                        pbKeyboard.WriteText("Unknown command", true);
+                        break;
+                }
+            }
+            else
+            {
+                foreach(Airlock airlock in airlocks.Values)
+                {
+                    if(!airlock.processState()) Runtime.UpdateFrequency |= UpdateFrequency.Once;
+                }
+            }
+        }
+    }
+}
+
