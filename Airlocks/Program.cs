@@ -48,7 +48,7 @@ namespace IngameScript
                 {PressureState.Fault, "Fault detected"}
             };
             public enum RequestState { None, Open, High, Low, Cycle }
-            public enum DisplayFormat { OneLine, MultiLine, Debug };
+            public enum DisplayFormat { None, OneLine, MultiLine, Debug };
 
             private List<IMyDoor> insideDoors;
             private List<IMyDoor> outsideDoors;
@@ -372,6 +372,8 @@ namespace IngameScript
                             displayContent.Append("Oxygen tanks:\n");
                             foreach (var oxygenTank in oxygenTanks) displayContent.Append($"  {oxygenTank.CustomName} ({oxygenTank.FilledRatio * 100:0.0}%)\n");
                             break;
+                        case DisplayFormat.None:
+                            break;
                         case DisplayFormat.OneLine:
                             if (showNames)
                                 displayContent.Append(this.name+" - ");
@@ -397,7 +399,7 @@ namespace IngameScript
                         pressureState = PressureState.Fault;
                         return;
                     }
-                    display.WriteText(displayContent);
+                    if (displayFormat[display] != DisplayFormat.None) display.WriteText(displayContent);
                     if (useColours && displayFormat[display] != DisplayFormat.Debug)
                     {
                         switch (pressureState)
@@ -507,6 +509,9 @@ namespace IngameScript
                                 break;
                             case "oneline":
                                 displayFormat = Airlock.DisplayFormat.OneLine;
+                                break;
+                            case "none":
+                                displayFormat = Airlock.DisplayFormat.None;
                                 break;
                             case "multiline":
                             default:
