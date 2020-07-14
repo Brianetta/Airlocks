@@ -4,6 +4,7 @@ using SpaceEngineers.Game.ModAPI.Ingame;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using VRage.Game;
 using VRage.Game.Definitions;
@@ -307,6 +308,7 @@ namespace IngameScript
                     pressureState = getNextPressureState();
                 }
                 updateDisplays();
+                updateLights();
                 return stateComplete;
             }
 
@@ -443,6 +445,35 @@ namespace IngameScript
                     }
                 };
             }
+
+            public void updateLights()
+            {
+                foreach (var light in lights)
+                {
+                    switch (pressureState)
+                    {
+
+                        case PressureState.LockDown:
+                        case PressureState.LockUp:
+                            if (useColours) light.Color = Color.Maroon;
+                            light.Enabled = true;
+                            break;
+                        case PressureState.Falling:
+                        case PressureState.Rising:
+                            if (useColours) light.Color = Color.DarkOrange;
+                            light.Enabled = true;
+                            break;
+                        case PressureState.Leak:
+                        case PressureState.Fault:
+                            if (useColours) light.Color = Color.Yellow;
+                            light.Enabled = true;
+                            break;
+                        default:
+                            light.Enabled = false;
+                            break;
+                    }
+                }
+            }
         }
 
         Dictionary<String, Airlock> airlocks = new Dictionary<String, Airlock>();
@@ -543,6 +574,11 @@ namespace IngameScript
                     {
                         // Let's hope the player doesn't want to breathe hydrogen
                         airlocks[airlockNameLC].addTank((IMyGasTank)airlockBlock);
+                    }
+                    if (airlockBlock is IMyLightingBlock)
+                    {
+                        // Let's hope the player doesn't want to breathe hydrogen
+                        airlocks[airlockNameLC].addLight((IMyLightingBlock)airlockBlock);
                     }
                     airlocks[airlockNameLC].updateDisplays();
                 }
