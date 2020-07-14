@@ -567,7 +567,7 @@ namespace IngameScript
             pbKeyboard.FontSize = 3F;
             populate();
             String[] airlockState;
-            foreach (String storedState in Storage.Split('\n'))
+            foreach (var storedState in Storage.Split('\n'))
             {
                 airlockState = storedState.Split('\t');
                 if (airlocks.ContainsKey(airlockState[0]))
@@ -580,7 +580,7 @@ namespace IngameScript
         public void Save()
         {
             StringBuilder airlockStatesToSave = new StringBuilder();
-            foreach (String airlock in airlocks.Keys)
+            foreach (var airlock in airlocks.Keys)
             {
                 airlockStatesToSave.Append(airlock + '\t' + airlocks[airlock].getPressureState() + '\n');
             }
@@ -635,7 +635,7 @@ namespace IngameScript
             }
             else
             {
-                foreach(Airlock airlock in airlocks.Values)
+                foreach(var airlock in airlocks.Values)
                 {
                     if(!airlock.processState()) Runtime.UpdateFrequency |= UpdateFrequency.Once;
                 }
