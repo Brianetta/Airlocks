@@ -353,38 +353,39 @@ namespace IngameScript
             public void updateDisplays()
             {
                 // DisplayFormat.Debug output
-                String separator = "\n";
                 foreach (var display in displays)
                 {
                     displayContent = new StringBuilder();
                     switch (displayFormat[display])
                     {
                         case DisplayFormat.Debug:
-                            displayContent.Append("Airlock information for: "+this.name+'\n'
+                            displayContent.Append("Airlock information for: "+name+'\n'
                                 +PressureStateLabel[this.pressureState]+"\nInterior doors:\n");
-                            foreach (var insideDoor in insideDoors) displayContent.Append(insideDoor.CustomName+" ("+insideDoor.Status+")\n");
+                            foreach (var insideDoor in insideDoors) displayContent.Append("  "+insideDoor.CustomName+" ("+insideDoor.Status+")\n");
                             displayContent.Append("Exterior doors:\n");
-                            foreach (var outsideDoor in outsideDoors) displayContent.Append(outsideDoor.CustomName+" ("+outsideDoor.Status+")\n");
+                            foreach (var outsideDoor in outsideDoors) displayContent.Append("  " + outsideDoor.CustomName+" ("+outsideDoor.Status+")\n");
                             displayContent.Append("Air vents:\n");
-                            foreach (var airVent in airVents) displayContent.Append(airVent.CustomName+" ("+airVent.Status+")\n");
+                            foreach (var airVent in airVents) displayContent.Append("  " + airVent.CustomName+" ("+airVent.Status+")\n");
                             displayContent.Append("Oxygen tanks:\n");
-                            foreach (var oxygenTank in oxygenTanks) displayContent.Append($"{oxygenTank.CustomName} ({oxygenTank.FilledRatio * 100:0.0}%)\n");
+                            foreach (var oxygenTank in oxygenTanks) displayContent.Append($"  {oxygenTank.CustomName} ({oxygenTank.FilledRatio * 100:0.0}%)\n");
                             break;
                         case DisplayFormat.OneLine:
                             if (showNames)
-                                displayContent.Append(this.name);
-                            foreach (IMyAirVent airVent in airVents)
-                            {
-                                displayContent.Append($" {airVent.Status} ({airVent.GetOxygenLevel() * 100:0.0}%)");
-                            }
+                                displayContent.Append(this.name+" - ");
+                            displayContent.Append(PressureStateLabel[pressureState]+' ');
                             break;
                         case DisplayFormat.MultiLine:
                             if (showNames)
-                                displayContent.Append($"{this.name}{separator}");
-                            displayContent.Append($"{PressureStateLabel[this.pressureState]}");
-                            foreach (IMyAirVent airVent in airVents)
+                                displayContent.Append(iniSectionName+": "+name+"\n");
+                            displayContent.Append($"{PressureStateLabel[pressureState]}\nInner doors:\n");
+                            foreach (IMyDoor door in insideDoors)
                             {
-                                displayContent.Append($"{separator}{airVent.Status} ({airVent.GetOxygenLevel() * 100:0.0}%)");
+                                displayContent.Append(door.Status.ToString() + ' ');
+                            }
+                            displayContent.Append("\nOuter doors:\n");
+                            foreach (IMyDoor door in outsideDoors)
+                            {
+                                displayContent.Append(door.Status.ToString() + ' ');
                             }
                             break;
                     }
