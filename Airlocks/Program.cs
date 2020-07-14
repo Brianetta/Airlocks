@@ -598,6 +598,43 @@ namespace IngameScript
             }
         }
 
+        public void populateFromGroups()
+        {
+            List<IMyTerminalBlock> allLocalBlocks = new List<IMyTerminalBlock>();
+            MyIni customData = new MyIni();
+            MyIniParseResult result;
+            String airlockName;
+            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(allLocalBlocks, block => block.IsSameConstructAs(Me));
+            foreach(IMyTerminalBlock block in allLocalBlocks)
+            {
+                if (!ini.TryParse(block.CustomData, out result)) continue;
+                if (ini.ContainsKey(iniSectionName, "airlock"))
+                {
+                    block.CustomData = "";
+                }
+            }
+            List<IMyBlockGroup> AirlockGroups = new List<IMyBlockGroup>();
+            List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+            IMyBlockGroup ExternalDoorsGroup;
+            List<IMyDoor> externalDoors = new List<IMyDoor>();
+            GridTerminalSystem.GetBlockGroups(AirlockGroups, g => g.Name.StartsWith(iniSectionName+' '));
+            ExternalDoorsGroup = GridTerminalSystem.GetBlockGroupWithName(iniSectionName + "ExternalDoors");
+            if (null == ExternalDoorsGroup)
+                externalDoors = new List<IMyDoor>();
+            else
+                ExternalDoorsGroup.GetBlocksOfType<IMyDoor>(externalDoors);
+            foreach(IMyBlockGroup group in AirlockGroups)
+            {
+                airlockName = group.Name.Substring(group.Name.IndexOf(' ')+1);
+                group.GetBlocks(blocks);
+                foreach (IMyTerminalBlock block in blocks)
+                {
+                    block.CustomData = "[" + iniSectionName + "]\nAirlock=" + airlockName + (externalDoors.Contains(block) ? "\nside=outer" : "");
+                }
+            }
+            populate();
+        }
+
         public Program()
         {
             Runtime.UpdateFrequency = UpdateFrequency.Update100;
@@ -634,6 +671,10 @@ namespace IngameScript
                     case "populate":
                         pbKeyboard.WriteText("Populate from Custom Data\n", true);
                         populate();
+                        break;
+                    case "destroyandpopulatefromgroups":
+                        pbKeyboard.WriteText("Populate from Groups\n", true);
+                        populateFromGroups();
                         break;
                     case "high":
                         if (airlocks.ContainsKey(reqAirlock))
