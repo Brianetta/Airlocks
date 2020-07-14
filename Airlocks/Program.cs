@@ -287,7 +287,7 @@ namespace IngameScript
                                 return (true);
                             }
                             door.Enabled = true;
-                            //door.OpenDoor();
+                            if(doorAutomaticallyOpens[door]) door.OpenDoor();
                         }
                         foreach (IMyDoor door in outsideDoors)
                         {
@@ -297,7 +297,7 @@ namespace IngameScript
                                 return (true);
                             }
                             door.Enabled = true;
-                            //door.OpenDoor();
+                            if (doorAutomaticallyOpens[door]) door.OpenDoor();
                         }
                         break;
                     default:
