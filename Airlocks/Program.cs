@@ -10,6 +10,7 @@ using VRage.Game.Definitions;
 using VRage.Game.ModAPI.Ingame.Utilities;
 using VRageMath;
 using VRageRender;
+using VRageRender.Voxels;
 
 namespace IngameScript
 {
@@ -38,10 +39,10 @@ namespace IngameScript
             private readonly Dictionary<PressureState, String> PressureStateLabel = new Dictionary<PressureState, string> {
                 {PressureState.Open, "Open both sides"},
                 {PressureState.High, "High pressure"},
-                {PressureState.LockDown, "Preparing to depressurize" },
+                {PressureState.LockDown, "Closing doors" },
                 {PressureState.Falling, "Despressurizing"},
                 {PressureState.Low, "Vacuum"},
-                {PressureState.LockUp, "Preparing to pressurize"},
+                {PressureState.LockUp, "Closing doors"},
                 {PressureState.Rising, "Pressurizing"},
                 {PressureState.Leak, "Leak detected"},
                 {PressureState.Fault, "Fault detected"}
@@ -73,6 +74,16 @@ namespace IngameScript
                 oxygenTanks = new List<IMyGasTank>();
                 pressureState = PressureState.Open;
                 requestState = RequestState.None;
+            }
+
+            public void setPressureState(String state)
+            {
+                pressureState = (PressureState)Enum.Parse(typeof(PressureState),state);
+            }
+
+            public String getPressureState()
+            {
+                return pressureState.ToString();
             }
 
             private PressureState getPressureStateFromRequest()
@@ -154,6 +165,11 @@ namespace IngameScript
                     case PressureState.LockUp:
                         foreach (IMyDoor door in outsideDoors)
                         {
+                            if (null == door || door.WorldMatrix == MatrixD.Identity || !door.IsFunctional)
+                                {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             if (door.Status == DoorStatus.Closed)
                             {
                                 door.Enabled = false;
@@ -167,6 +183,11 @@ namespace IngameScript
                         }
                         foreach (IMyDoor door in insideDoors)
                         {
+                            if (null == door || door.WorldMatrix == MatrixD.Identity || !door.IsFunctional)
+                                {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             if (door.Status == DoorStatus.Closed)
                             {
                                 door.Enabled = false;
@@ -182,6 +203,11 @@ namespace IngameScript
                     case PressureState.Falling:
                         foreach (IMyAirVent airVent in airVents)
                         {
+                            if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             if ((airVent.Status == VentStatus.Depressurized)||(airVent.Enabled && airVent.GetOxygenLevel()<0.01))
                             {
                                 airVent.Enabled = false;
@@ -200,12 +226,22 @@ namespace IngameScript
                         }
                         foreach(IMyGasTank oxygenTank in oxygenTanks)
                         {
+                            if (null == oxygenTank || oxygenTank.WorldMatrix == MatrixD.Identity || !oxygenTank.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             if (oxygenTank.FilledRatio == 0.0) pressureState = PressureState.Fault;
                         }
                         break;
                     case PressureState.Rising:
                         foreach (IMyAirVent airVent in airVents)
                         {
+                            if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             if (airVent.Status == VentStatus.Pressurized)
                             {
                                 airVent.Enabled = false;
@@ -224,21 +260,41 @@ namespace IngameScript
                         }
                         foreach (IMyGasTank oxygenTank in oxygenTanks)
                         {
+                            if (null == oxygenTank || oxygenTank.WorldMatrix == MatrixD.Identity || !oxygenTank.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             if (oxygenTank.FilledRatio == 1.0) pressureState = PressureState.Fault;
                         }
                         break;
                     case PressureState.Open:
                         foreach (IMyAirVent airVent in airVents)
                         {
+                            if (null == airVent ||airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             airVent.Enabled = false;
                         }
                         foreach (IMyDoor door in insideDoors)
                         {
+                            if (null == door || door.WorldMatrix == MatrixD.Identity || !door.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             door.Enabled = true;
                             //door.OpenDoor();
                         }
                         foreach (IMyDoor door in outsideDoors)
                         {
+                            if (null == door || door.WorldMatrix == MatrixD.Identity || !door.IsFunctional)
+                                {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
                             door.Enabled = true;
                             //door.OpenDoor();
                         }
@@ -278,6 +334,7 @@ namespace IngameScript
             {
                 displays.Add(newDisplay);
                 displayFormat.Add(newDisplay, newDisplayFormat);
+                newDisplay.PreserveAspectRatio = true;
             }
 
             public void addLight(IMyLightingBlock newLight)
@@ -333,27 +390,40 @@ namespace IngameScript
                             }
                             break;
                     }
+                    if (null == display)
+                    {
+                        pressureState = PressureState.Fault;
+                        return;
+                    }
                     display.WriteText(displayContent);
                     if (useColours && displayFormat[display] != DisplayFormat.Debug)
                     {
                         switch (pressureState)
                         {
                             case PressureState.Open:
+                                display.ClearImagesFromSelection();
+                                display.AddImageToSelection("Danger");
                                 display.BackgroundColor = Color.DarkGoldenrod;
                                 break;
                             case PressureState.High:
+                                display.ClearImagesFromSelection();
                                 display.BackgroundColor = Color.Green;
                                 break;
                             case PressureState.LockDown:
-                                display.BackgroundColor = Color.DarkRed;
+                                display.ClearImagesFromSelection();
+                                display.AddImageToSelection("Danger");
+                                display.BackgroundColor = Color.Maroon;
                                 break;
                             case PressureState.Falling:
                                 display.BackgroundColor = Color.DarkCyan;
                                 break;
                             case PressureState.Low:
+                                display.ClearImagesFromSelection();
                                 display.BackgroundColor = Color.Cyan;
                                 break;
                             case PressureState.LockUp:
+                                display.ClearImagesFromSelection();
+                                display.AddImageToSelection("Danger");
                                 display.BackgroundColor = Color.Blue;
                                 break;
                             case PressureState.Rising:
@@ -361,6 +431,8 @@ namespace IngameScript
                                 break;
                             case PressureState.Leak:
                             case PressureState.Fault:
+                                display.ClearImagesFromSelection();
+                                display.AddImageToSelection("Danger");
                                 display.BackgroundColor = Color.Red;
                                 break;
                         }
@@ -485,6 +557,25 @@ namespace IngameScript
             pbKeyboard.Font = "DEBUG";
             pbKeyboard.FontSize = 3F;
             populate();
+            String[] airlockState;
+            foreach (String storedState in Storage.Split('\n'))
+            {
+                airlockState = storedState.Split('\t');
+                if (airlocks.ContainsKey(airlockState[0]))
+                {
+                    airlocks[airlockState[0]].setPressureState(airlockState[1]);
+                }
+            }
+        }
+
+        public void Save()
+        {
+            StringBuilder airlockStatesToSave = new StringBuilder();
+            foreach (String airlock in airlocks.Keys)
+            {
+                airlockStatesToSave.Append(airlock + '\t' + airlocks[airlock].getPressureState() + '\n');
+            }
+            Storage = airlockStatesToSave.ToString();
         }
 
         public void Main(String args)
