@@ -232,7 +232,7 @@ namespace IngameScript
                                 pressureState = PressureState.Fault;
                                 return (true);
                             }
-                            if (oxygenTank.FilledRatio == 0.0) pressureState = PressureState.Fault;
+                            if (oxygenTank.FilledRatio == 0.0) pressureState = PressureState.Low;
                         }
                         break;
                     case PressureState.Rising:
@@ -266,7 +266,7 @@ namespace IngameScript
                                 pressureState = PressureState.Fault;
                                 return (true);
                             }
-                            if (oxygenTank.FilledRatio == 1.0) pressureState = PressureState.Fault;
+                            if (oxygenTank.FilledRatio == 1.0) pressureState = PressureState.High;
                         }
                         break;
                     case PressureState.Open:
@@ -588,6 +588,15 @@ namespace IngameScript
             {
                 pbDisplay.WriteText($"Airlock: {airlock.name}\n", true);
             }
+            String[] airlockState;
+            foreach (var storedState in Storage.Split('\n'))
+            {
+                airlockState = storedState.Split('\t');
+                if (airlocks.ContainsKey(airlockState[0]))
+                {
+                    airlocks[airlockState[0]].setPressureState(airlockState[1]);
+                }
+            }
         }
 
         public Program()
@@ -602,15 +611,6 @@ namespace IngameScript
             pbKeyboard.Font = "DEBUG";
             pbKeyboard.FontSize = 3F;
             populate();
-            String[] airlockState;
-            foreach (var storedState in Storage.Split('\n'))
-            {
-                airlockState = storedState.Split('\t');
-                if (airlocks.ContainsKey(airlockState[0]))
-                {
-                    airlocks[airlockState[0]].setPressureState(airlockState[1]);
-                }
-            }
         }
 
         public void Save()
