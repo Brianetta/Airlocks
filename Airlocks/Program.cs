@@ -52,6 +52,7 @@ namespace IngameScript
 
             private List<IMyDoor> insideDoors;
             private List<IMyDoor> outsideDoors;
+            private Dictionary<IMyDoor, bool> doorAutomaticallyOpens;
             private List<IMyTextSurface> displays;
             private Dictionary<IMyTextSurface, DisplayFormat> displayFormat;
             private List<IMyLightingBlock> lights;
@@ -67,6 +68,7 @@ namespace IngameScript
                 this.name = name;
                 insideDoors = new List<IMyDoor>();
                 outsideDoors = new List<IMyDoor>();
+                doorAutomaticallyOpens = new Dictionary<IMyDoor, bool>();
                 displays = new List<IMyTextSurface>();
                 displayFormat = new Dictionary<IMyTextSurface, DisplayFormat>();
                 lights = new List<IMyLightingBlock>();
@@ -209,7 +211,7 @@ namespace IngameScript
                             if ((airVent.Status == VentStatus.Depressurized)||(airVent.Enabled && airVent.GetOxygenLevel()<0.01))
                             {
                                 airVent.Enabled = false;
-                                outsideDoors.ForEach(d => { d.Enabled = true; d.OpenDoor(); });
+                                outsideDoors.ForEach(d => { d.Enabled = true; if(doorAutomaticallyOpens[d]) d.OpenDoor(); });
                             }
                             else
                             {
@@ -243,7 +245,7 @@ namespace IngameScript
                             if (airVent.Status == VentStatus.Pressurized)
                             {
                                 airVent.Enabled = false;
-                                insideDoors.ForEach(d => { d.Enabled = true; d.OpenDoor(); });
+                                insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                             }
                             else
                             {
@@ -308,7 +310,7 @@ namespace IngameScript
                 return stateComplete;
             }
 
-            public void addDoor(IMyDoor newDoor, bool inside = true)
+            public void addDoor(IMyDoor newDoor, bool inside = true, bool automaticallyOpen=true)
             {
                 if (inside)
                 {
@@ -326,6 +328,7 @@ namespace IngameScript
                         insideDoors.Remove(newDoor);
                     }
                 }
+                doorAutomaticallyOpens.Add(newDoor, automaticallyOpen);
             }
 
             public void addDisplay(IMyTextSurface newDisplay, DisplayFormat newDisplayFormat)
@@ -450,6 +453,7 @@ namespace IngameScript
             String airlockNameLC;
             List<String> airlockNames = new List<string>();
             bool doorSide = true;
+            bool doorAutomaticallyOpen = true;
             int dMax = 1;
             IMyTextSurface display;
             MyIniParseResult result;
@@ -487,7 +491,8 @@ namespace IngameScript
                     if (airlockBlock is IMyDoor)
                     {
                         doorSide = ini.Get(iniSectionName, "side").ToString("in").ToLower().StartsWith("in");
-                        airlocks[airlockNameLC].addDoor((IMyDoor)airlockBlock, doorSide);
+                        doorAutomaticallyOpen = ini.Get(iniSectionName, "auto-open").ToBoolean(true);
+                        airlocks[airlockNameLC].addDoor((IMyDoor)airlockBlock, doorSide, doorAutomaticallyOpen);
                     }
                     if (airlockBlock is IMyAirVent)
                     {
