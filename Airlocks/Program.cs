@@ -100,8 +100,6 @@ namespace IngameScript
                                 return PressureState.Rising;
                             case PressureState.High:
                                 return PressureState.High;
-                            case PressureState.Leak:
-                                return pressureState;
                             default:
                                 return PressureState.LockUp;
                         };
