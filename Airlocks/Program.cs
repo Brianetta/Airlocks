@@ -459,7 +459,6 @@ namespace IngameScript
                             light.Enabled = true;
                             break;
                         case PressureState.Falling:
-                        case PressureState.Rising:
                             if (useColours) light.Color = Color.DarkOrange;
                             light.Enabled = true;
                             break;
