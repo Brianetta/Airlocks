@@ -366,11 +366,11 @@ namespace IngameScript
                         case DisplayFormat.Debug:
                             displayContent.Append("Airlock information for: "+name+'\n'
                                 +PressureStateLabel[this.pressureState]+"\nInterior doors:\n");
-                            foreach (var insideDoor in insideDoors) displayContent.Append("  "+insideDoor.CustomName+" ("+insideDoor.Status+")\n");
+                            foreach (var insideDoor in insideDoors) displayContent.Append("  "+insideDoor.CustomName+" ("+(insideDoor.IsFunctional ? insideDoor.Status.ToString() : "Fault")+")\n");
                             displayContent.Append("Exterior doors:\n");
-                            foreach (var outsideDoor in outsideDoors) displayContent.Append("  " + outsideDoor.CustomName+" ("+outsideDoor.Status+")\n");
+                            foreach (var outsideDoor in outsideDoors) displayContent.Append("  " + outsideDoor.CustomName+" ("+ (outsideDoor.IsFunctional ? outsideDoor.Status.ToString() : "Fault") + ")\n");
                             displayContent.Append("Air vents:\n");
-                            foreach (var airVent in airVents) displayContent.Append("  " + airVent.CustomName+" ("+airVent.Status+")\n");
+                            foreach (var airVent in airVents) displayContent.Append("  " + airVent.CustomName+" ("+(airVent.IsFunctional ? airVent.Status.ToString() : "Fault" )+")\n");
                             displayContent.Append("Oxygen tanks:\n");
                             foreach (var oxygenTank in oxygenTanks) displayContent.Append($"  {oxygenTank.CustomName} ({oxygenTank.FilledRatio * 100:0.0}%)\n");
                             break;
@@ -387,12 +387,12 @@ namespace IngameScript
                             displayContent.Append($"{PressureStateLabel[pressureState]}\nInner doors:\n");
                             foreach (IMyDoor door in insideDoors)
                             {
-                                displayContent.Append(door.Status.ToString() + ' ');
+                                displayContent.Append(door.IsFunctional ? door.Status.ToString() + ' ' : "Fault ");
                             }
                             displayContent.Append("\nOuter doors:\n");
                             foreach (IMyDoor door in outsideDoors)
                             {
-                                displayContent.Append(door.Status.ToString() + ' ');
+                                displayContent.Append(door.IsFunctional ? door.Status.ToString() + ' ' : "Fault ");
                             }
                             break;
                     }
