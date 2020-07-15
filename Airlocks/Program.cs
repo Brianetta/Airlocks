@@ -160,6 +160,7 @@ namespace IngameScript
                     requestState = RequestState.None;
                 }
                 bool stateComplete = true;
+                double totalFill;
                 switch (pressureState)
                 {
                     case PressureState.LockDown:
@@ -206,67 +207,7 @@ namespace IngameScript
                         {
                             outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                         }
-                        foreach (IMyAirVent airVent in airVents)
-                        {
-                            if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
-                            {
-                                pressureState = PressureState.Fault;
-                                return (true);
-                            }
-                            if ((airVent.Status == VentStatus.Depressurized)||(airVent.Enabled && airVent.GetOxygenLevel()<0.01))
-                            {
-                                airVent.Enabled = false;
-                                outsideDoors.ForEach(d => { d.Enabled = true; if(doorAutomaticallyOpens[d]) d.OpenDoor(); });
-                            }
-                            else
-                            {
-                                airVent.Depressurize = true;
-                                airVent.Enabled = true;
-                                stateComplete = false;
-                            }
-                            if (!airVent.CanPressurize)
-                            {
-                                pressureState = PressureState.Leak;
-                            }
-                        }
-                        foreach(IMyGasTank oxygenTank in oxygenTanks)
-                        {
-                            if (null == oxygenTank || oxygenTank.WorldMatrix == MatrixD.Identity || !oxygenTank.IsFunctional)
-                            {
-                                pressureState = PressureState.Fault;
-                                return (true);
-                            }
-                            if (oxygenTank.FilledRatio == 0.0) pressureState = PressureState.Low;
-                        }
-                        break;
-                    case PressureState.Rising:
-                        if (airVents.Count == 0)
-                        {
-                            insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
-                        }
-                        foreach (IMyAirVent airVent in airVents)
-                        {
-                            if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
-                            {
-                                pressureState = PressureState.Fault;
-                                return (true);
-                            }
-                            if (airVent.Status == VentStatus.Pressurized)
-                            {
-                                airVent.Enabled = false;
-                                insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
-                            }
-                            else
-                            {
-                                airVent.Depressurize = false;
-                                airVent.Enabled = true;
-                                stateComplete = false;
-                            }
-                            if (!airVent.CanPressurize)
-                            {
-                                pressureState = PressureState.Leak;
-                            }
-                        }
+                        totalFill = 0;
                         foreach (IMyGasTank oxygenTank in oxygenTanks)
                         {
                             if (null == oxygenTank || oxygenTank.WorldMatrix == MatrixD.Identity || !oxygenTank.IsFunctional)
@@ -274,9 +215,92 @@ namespace IngameScript
                                 pressureState = PressureState.Fault;
                                 return (true);
                             }
-                            if (oxygenTank.FilledRatio == 1.0) pressureState = PressureState.High;
+                            totalFill += oxygenTank.FilledRatio;
+                        }
+                        if (totalFill == oxygenTanks.Count)
+                        {
+                            foreach (IMyAirVent airVent in airVents)
+                            {
+                                airVent.Enabled = false;
+                                outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                            }
+                        }
+                        else
+                        {
+                            foreach (IMyAirVent airVent in airVents)
+                            {
+                                if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
+                                {
+                                    pressureState = PressureState.Fault;
+                                    return (true);
+                                }
+                                if ((airVent.Status == VentStatus.Depressurized) || (airVent.Enabled && airVent.GetOxygenLevel() < 0.01))
+                                {
+                                    airVent.Enabled = false;
+                                    outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                                }
+                                else
+                                {
+                                    airVent.Depressurize = true;
+                                    airVent.Enabled = true;
+                                    stateComplete = false;
+                                }
+                                if (!airVent.CanPressurize)
+                                {
+                                    pressureState = PressureState.Leak;
+                                }
+                            }
                         }
                         break;
+                    case PressureState.Rising:
+                        if (airVents.Count == 0)
+                        {
+                            insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                        }
+                        totalFill = 0;
+                        foreach (IMyGasTank oxygenTank in oxygenTanks)
+                        {
+                            if (null == oxygenTank || oxygenTank.WorldMatrix == MatrixD.Identity || !oxygenTank.IsFunctional)
+                            {
+                                pressureState = PressureState.Fault;
+                                return (true);
+                            }
+                            totalFill += oxygenTank.FilledRatio;
+                        }
+                        if (totalFill == oxygenTanks.Count)
+                        {
+                            foreach (IMyAirVent airVent in airVents)
+                            {
+                                airVent.Enabled = false;
+                                insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                            }
+                        }
+                        else
+                        {
+                            foreach (IMyAirVent airVent in airVents)
+                            {
+                                if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
+                                {
+                                    pressureState = PressureState.Fault;
+                                    return (true);
+                                }
+                                if (airVent.Status == VentStatus.Pressurized)
+                                {
+                                    airVent.Enabled = false;
+                                    insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                                }
+                                else
+                                {
+                                    airVent.Depressurize = false;
+                                    airVent.Enabled = true;
+                                    stateComplete = false;
+                                }
+                                if (!airVent.CanPressurize)
+                                {
+                                    pressureState = PressureState.Leak;
+                                }
+                            }
+                        }                        break;
                     case PressureState.Open:
                         foreach (IMyAirVent airVent in airVents)
                         {
