@@ -167,7 +167,7 @@ namespace IngameScript
                         foreach (IMyDoor door in outsideDoors)
                         {
                             if (null == door || door.WorldMatrix == MatrixD.Identity || !door.IsFunctional)
-                                {
+                            {
                                 pressureState = PressureState.Fault;
                                 return (true);
                             }
@@ -185,7 +185,7 @@ namespace IngameScript
                         foreach (IMyDoor door in insideDoors)
                         {
                             if (null == door || door.WorldMatrix == MatrixD.Identity || !door.IsFunctional)
-                                {
+                            {
                                 pressureState = PressureState.Fault;
                                 return (true);
                             }
@@ -202,6 +202,10 @@ namespace IngameScript
                         }
                         break;
                     case PressureState.Falling:
+                        if (airVents.Count == 0)
+                        {
+                            outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                        }
                         foreach (IMyAirVent airVent in airVents)
                         {
                             if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
@@ -236,6 +240,10 @@ namespace IngameScript
                         }
                         break;
                     case PressureState.Rising:
+                        if (airVents.Count == 0)
+                        {
+                            insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
+                        }
                         foreach (IMyAirVent airVent in airVents)
                         {
                             if (null == airVent || airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
