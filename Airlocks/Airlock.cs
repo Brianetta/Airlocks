@@ -13,6 +13,7 @@ namespace IngameScript
         {
             private enum PressureState
             {
+                Opening,
                 Open,
                 High,
                 LockDown,
@@ -24,6 +25,7 @@ namespace IngameScript
                 Fault
             };
             private readonly Dictionary<PressureState, String> PressureStateLabel = new Dictionary<PressureState, string> {
+                {PressureState.Opening, "Opening both sides"},
                 {PressureState.Open, "Open both sides"},
                 {PressureState.High, "High pressure"},
                 {PressureState.LockDown, "Closing doors" },
@@ -80,7 +82,10 @@ namespace IngameScript
                 switch (requestState)
                 {
                     case RequestState.Open:
-                        return PressureState.Open;
+                        if (pressureState == PressureState.Open)
+                            return PressureState.Open;
+                        else
+                            return PressureState.Opening;
                     case RequestState.High:
                         switch (pressureState)
                         {
@@ -133,6 +138,8 @@ namespace IngameScript
                         return PressureState.Rising;
                     case PressureState.Rising:
                         return PressureState.High;
+                    case PressureState.Opening:
+                        return PressureState.Open;
                     default:
                         return pressureState;
                 }
@@ -287,7 +294,7 @@ namespace IngameScript
                                 }
                             }
                         }                        break;
-                    case PressureState.Open:
+                    case PressureState.Opening:
                         foreach (IMyAirVent airVent in airVents)
                         {
                             if (null == airVent ||airVent.WorldMatrix == MatrixD.Identity || !airVent.IsFunctional)
