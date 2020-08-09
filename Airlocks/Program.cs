@@ -123,7 +123,6 @@ namespace IngameScript
                     }
                     if (airlockBlock is IMyLightingBlock)
                     {
-                        // Let's hope the player doesn't want to breathe hydrogen
                         airlocks[airlockNameLC].addLight((IMyLightingBlock)airlockBlock);
                     }
                     airlocks[airlockNameLC].updateDisplays();
