@@ -38,6 +38,7 @@ namespace IngameScript
             };
             public enum RequestState { None, Open, High, Low, Cycle }
             public enum DisplayFormat { None, OneLine, MultiLine, Debug };
+            const double AirCloseEnoughThanks = 0.01;
 
             private List<IMyDoor> insideDoors;
             private List<IMyDoor> outsideDoors;
@@ -210,7 +211,7 @@ namespace IngameScript
                             }
                             totalFill += oxygenTank.FilledRatio;
                         }
-                        if (totalFill == oxygenTanks.Count)
+                        if ((totalFill > (double)oxygenTanks.Count - AirCloseEnoughThanks))
                         {
                             foreach (IMyAirVent airVent in airVents)
                             {
@@ -227,7 +228,7 @@ namespace IngameScript
                                     pressureState = PressureState.Fault;
                                     return (true);
                                 }
-                                if ((airVent.Status == VentStatus.Depressurized) || (airVent.Enabled && airVent.GetOxygenLevel() < 0.01))
+                                if ((airVent.Status == VentStatus.Depressurized) || (airVent.Enabled && airVent.GetOxygenLevel() < AirCloseEnoughThanks))
                                 {
                                     airVent.Enabled = false;
                                     outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
@@ -260,7 +261,7 @@ namespace IngameScript
                             }
                             totalFill += oxygenTank.FilledRatio;
                         }
-                        if (totalFill == oxygenTanks.Count)
+                        if (!(totalFill > AirCloseEnoughThanks))
                         {
                             foreach (IMyAirVent airVent in airVents)
                             {
