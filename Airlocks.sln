@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30225.117
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Airlocks", "Airlocks\Airlocks.csproj", "{75539C2A-36D8-4917-9CD3-B47EF835D7D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Airlock Manager", "Airlocks\Airlock Manager.csproj", "{75539C2A-36D8-4917-9CD3-B47EF835D7D1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

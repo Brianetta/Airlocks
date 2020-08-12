@@ -75,7 +75,28 @@ namespace IngameScript
                     }
                     if (airlockBlock is IMyAirVent)
                     {
-                        airlocks[airlockNameLC].addAirVent((IMyAirVent)airlockBlock);
+                        String remainActiveInput = ini.Get(iniSectionName, "remainactive").ToString("never").ToLower();
+                        bool remainActiveHigh, remainActiveLow;
+                        switch(remainActiveInput)
+                        {
+                            case "always":
+                                remainActiveHigh = true;
+                                remainActiveLow = true;
+                                break;
+                            case "high":
+                                remainActiveHigh = true;
+                                remainActiveLow = false;
+                                break;
+                            case "low":
+                                remainActiveHigh = false;
+                                remainActiveLow = true;
+                                break;
+                            default:
+                                remainActiveHigh = false;
+                                remainActiveLow = false;
+                                break;
+                        }
+                        airlocks[airlockNameLC].addAirVent((IMyAirVent)airlockBlock,remainActiveHigh,remainActiveLow);
                     }
                     if (airlockBlock is IMyTextSurfaceProvider)
                     {

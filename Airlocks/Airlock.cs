@@ -43,6 +43,8 @@ namespace IngameScript
             private List<IMyDoor> insideDoors;
             private List<IMyDoor> outsideDoors;
             private Dictionary<IMyDoor, bool> doorAutomaticallyOpens;
+            private bool ventsRemainActiveHigh = false;
+            private bool ventsRemainActiveLow = false;
             private List<IMyTextSurface> displays;
             private Dictionary<IMyTextSurface, DisplayFormat> displayFormat;
             private List<IMyLightingBlock> lights;
@@ -215,7 +217,7 @@ namespace IngameScript
                         {
                             foreach (IMyAirVent airVent in airVents)
                             {
-                                airVent.Enabled = false;
+                                airVent.Enabled = ventsRemainActiveLow;
                                 outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                             }
                         }
@@ -230,7 +232,7 @@ namespace IngameScript
                                 }
                                 if ((airVent.Status == VentStatus.Depressurized) || (airVent.Enabled && airVent.GetOxygenLevel() < AirCloseEnoughThanks))
                                 {
-                                    airVent.Enabled = false;
+                                    airVent.Enabled = ventsRemainActiveLow;
                                     outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                                 }
                                 else
@@ -265,7 +267,7 @@ namespace IngameScript
                         {
                             foreach (IMyAirVent airVent in airVents)
                             {
-                                airVent.Enabled = false;
+                                airVent.Enabled = ventsRemainActiveHigh;
                                 insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                             }
                         }
@@ -280,7 +282,7 @@ namespace IngameScript
                                 }
                                 if (airVent.Status == VentStatus.Pressurized)
                                 {
-                                    airVent.Enabled = false;
+                                    airVent.Enabled = ventsRemainActiveHigh;
                                     insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                                 }
                                 else
@@ -294,7 +296,8 @@ namespace IngameScript
                                     pressureState = PressureState.Leak;
                                 }
                             }
-                        }                        break;
+                        }
+                        break;
                     case PressureState.Opening:
                         foreach (IMyAirVent airVent in airVents)
                         {
@@ -303,7 +306,7 @@ namespace IngameScript
                                 pressureState = PressureState.Fault;
                                 return (true);
                             }
-                            airVent.Enabled = false;
+                            airVent.Enabled = ventsRemainActiveLow;
                         }
                         foreach (IMyDoor door in insideDoors)
                         {
@@ -371,9 +374,11 @@ namespace IngameScript
                 lights.Add(newLight);
             }
 
-            public void addAirVent(IMyAirVent newAirVent)
+            public void addAirVent(IMyAirVent newAirVent, bool remainActiveHigh, bool remainActiveLow)
             {
                 airVents.Add(newAirVent);
+                ventsRemainActiveHigh |= remainActiveHigh;
+                ventsRemainActiveLow |= remainActiveLow;
             }
 
             public void addTank(IMyGasTank newOxygenTank)
