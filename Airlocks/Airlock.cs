@@ -38,7 +38,7 @@ namespace IngameScript
             };
             public enum RequestState { None, Open, High, Low, Cycle }
             public enum DisplayFormat { None, OneLine, MultiLine, Debug };
-            const double AirCloseEnoughThanks = 0.01;
+            const double AirCloseEnoughThanks = 0.001;
 
             private List<IMyDoor> insideDoors;
             private List<IMyDoor> outsideDoors;
