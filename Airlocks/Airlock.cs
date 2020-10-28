@@ -213,10 +213,11 @@ namespace IngameScript
                             }
                             totalFill += oxygenTank.FilledRatio;
                         }
-                        if ((totalFill > (double)oxygenTanks.Count - AirCloseEnoughThanks))
+                        if (0 < oxygenTanks.Count && (totalFill > (double)oxygenTanks.Count - AirCloseEnoughThanks))
                         {
                             foreach (IMyAirVent airVent in airVents)
                             {
+                                airVent.Depressurize = true;
                                 airVent.Enabled = ventsRemainActiveLow;
                                 outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                             }
@@ -232,6 +233,7 @@ namespace IngameScript
                                 }
                                 if ((airVent.Status == VentStatus.Depressurized) || (airVent.Enabled && airVent.GetOxygenLevel() < AirCloseEnoughThanks))
                                 {
+                                    airVent.Depressurize = true;
                                     airVent.Enabled = ventsRemainActiveLow;
                                     outsideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                                 }
@@ -263,10 +265,11 @@ namespace IngameScript
                             }
                             totalFill += oxygenTank.FilledRatio;
                         }
-                        if (!(totalFill > AirCloseEnoughThanks))
+                        if (0 < oxygenTanks.Count && !(totalFill > AirCloseEnoughThanks))
                         {
                             foreach (IMyAirVent airVent in airVents)
                             {
+                                airVent.Depressurize = false;
                                 airVent.Enabled = ventsRemainActiveHigh;
                                 insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                             }
@@ -282,6 +285,7 @@ namespace IngameScript
                                 }
                                 if (airVent.Status == VentStatus.Pressurized)
                                 {
+                                    airVent.Depressurize = false;
                                     airVent.Enabled = ventsRemainActiveHigh;
                                     insideDoors.ForEach(d => { d.Enabled = true; if (doorAutomaticallyOpens[d]) d.OpenDoor(); });
                                 }
