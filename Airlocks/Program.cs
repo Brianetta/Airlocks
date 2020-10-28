@@ -21,9 +21,11 @@ namespace IngameScript
         private static bool useColours = true;
         static IMyTextSurface pbDisplay,pbKeyboard;
         private String reqCommand, reqAirlock;
+        private bool lowImpactMode = false;
 
         Dictionary<String, Airlock> airlocks = new Dictionary<String, Airlock>();
         readonly MyIni ini = new MyIni();
+        MyIniParseResult result;
         readonly MyCommandLine commandLine = new MyCommandLine();
 
         public void populate()
@@ -35,7 +37,6 @@ namespace IngameScript
             bool doorAutomaticallyOpen = true;
             int dMax = 1;
             IMyTextSurface display;
-            MyIniParseResult result;
             Airlock.DisplayFormat displayFormat;
 
             airlocks.Clear();
@@ -168,8 +169,6 @@ namespace IngameScript
         public void populateFromGroups()
         {
             List<IMyTerminalBlock> allLocalBlocks = new List<IMyTerminalBlock>();
-            MyIni customData = new MyIni();
-            MyIniParseResult result;
             String airlockName;
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(allLocalBlocks, block => block.IsSameConstructAs(Me));
             foreach(IMyTerminalBlock block in allLocalBlocks)
@@ -204,7 +203,14 @@ namespace IngameScript
 
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update100;
+            if (ini.TryParse(Me.CustomData, out result))
+                if (ini.ContainsKey(iniSectionName, "lowimpact"))
+                    if (ini.Get(iniSectionName, "lowimpact").ToBoolean())
+                        lowImpactMode = true;
+            if (lowImpactMode)
+                Runtime.UpdateFrequency = UpdateFrequency.None;
+            else
+                Runtime.UpdateFrequency = UpdateFrequency.Update100;
             pbDisplay = Me.GetSurface(0);
             pbDisplay.Font = "DEBUG";
             pbDisplay.FontSize = 0.8F;
@@ -280,7 +286,7 @@ namespace IngameScript
             {
                 foreach(var airlock in airlocks.Values)
                 {
-                    if(!airlock.processState()) Runtime.UpdateFrequency |= UpdateFrequency.Once;
+                    if(!(airlock.processState() || lowImpactMode)) Runtime.UpdateFrequency |= UpdateFrequency.Once;
                 }
             }
         }
